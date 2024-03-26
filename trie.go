@@ -1,7 +1,7 @@
 package gospellcheck
 
 import (
-	"fmt"
+	// "fmt"
 	"strings"
 )
 
@@ -29,13 +29,19 @@ func newTrie() *Trie {
 }
 
 func (t Trie) Contains(key string) bool {
-	if "" == key {
-		return t.root.isKey
+	currentNode := t.root
+	searchChars := []rune(key)
+	for len(searchChars) >= 1 {
+		c := searchChars[0]
+		child, hasChild := currentNode.children[c]
+		if hasChild {
+			currentNode = child
+			searchChars = searchChars[1:]
+		} else {
+			return false
+		}
 	}
-	for i, b := range key {
-		fmt.Printf("i: %v, b: %v\n", i, b)
-	}
-	return false
+	return currentNode.isKey
 }
 
 func (t *Trie) addNewBranch(node *Node, chars []rune) {
