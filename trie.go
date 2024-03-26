@@ -1,4 +1,4 @@
-package gospellcheck
+package main
 
 import (
 	// "fmt"
