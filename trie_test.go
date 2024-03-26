@@ -9,13 +9,15 @@ func TestCreate(t *testing.T) {
 	}
 }
 func TestInsert(t *testing.T) {
-	// strings := []string{"ant", "anthem", "anteater"}
-	testString := "and"
+	strings := []string{"ant", "anthem", "anteater"}
 	var trie *Trie = newTrie()
-	result := trie.Insert(testString)
-	if !result {
-		t.Fatalf("\nExpected:\ttrue\nActual:\t%v", result)
+	for _, word := range strings {
+		insertResult := trie.Insert(word)
+		if !insertResult {
+			t.Fatalf("\nExpected:\ttrue\nActual:\t%v", insertResult)
+		}
 	}
+
 }
 func TestEnumerate(t *testing.T) {
 	strings := []string{"ant", "anthem", "anteater"}
@@ -35,8 +37,31 @@ func TestEnumerate(t *testing.T) {
 func TestRemove(t *testing.T) {
 
 }
-func TestContains(t *testing.T) {
-
+func TestContains_Positive(t *testing.T) {
+	strings := []string{"ant", "anthem", "anteater"}
+	var trie *Trie = newTrie()
+	var insertResult bool = true
+	for _, word := range strings {
+		insertResult = insertResult && trie.Insert(word)
+	}
+	key := "ant"
+	containsKey := trie.Contains(key)
+	if !containsKey {
+		t.Fatalf("Expected trie to contain %v\n", key)
+	}
+}
+func TestContains_Negative(t *testing.T) {
+	strings := []string{"ant", "anthem", "anteater"}
+	var trie *Trie = newTrie()
+	var insertResult bool = true
+	for _, word := range strings {
+		insertResult = insertResult && trie.Insert(word)
+	}
+	key := "blarg"
+	containsKey := trie.Contains(key)
+	if containsKey {
+		t.Fatalf("Did not expect trie to contain key %v\n", key)
+	}
 }
 
 func TestLongestPrefix(t *testing.T) {
