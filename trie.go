@@ -2,6 +2,9 @@ package main
 
 import (
 	// "fmt"
+	"bufio"
+	"log"
+	"os"
 	"strings"
 )
 
@@ -145,4 +148,21 @@ type StringContainer interface {
 	Contains(key string) bool
 	LongestPrefix(key string) string
 	KeysStartingWith(prefix string) []string
+}
+
+func initializeSpellcheck(filename string) *Trie {
+	var trie = newTrie()
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		word := scanner.Text()
+		trie.Insert(word)
+	}
+
+	return trie
 }

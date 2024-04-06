@@ -3,27 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
+	// "log"
 	"os"
 	"strings"
 )
 
-func initializeSpellcheck(filename string) *Trie {
-	var trie = newTrie()
-	f, err := os.Open(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		word := scanner.Text()
-		trie.Insert(word)
-	}
-
-	return trie
-}
 func main() {
 	wordFile := os.Args[1]
 	trie := initializeSpellcheck(wordFile)
