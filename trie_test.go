@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"math/rand"
+	"testing"
+	"time"
+)
 
 func TestCreate(t *testing.T) {
 	var sc *Trie = newTrie()
@@ -64,10 +68,43 @@ func TestContains_Negative(t *testing.T) {
 	}
 }
 
-func TestLongestPrefix(t *testing.T) {
+func testLongestPrefix(t *testing.T) {
 
 }
 
-func TestKeysWithPrefix(t *testing.T) {
+func testKeysWithPrefix(t *testing.T) {
 
+}
+
+func pickRandomWords(n int, t *Trie) []string {
+	rand.Seed(time.Now().UnixNano())
+	sample := make([]string, n)
+	words := t.Enumerate()
+	nWords := len(words)
+	for i := 0; i < n; i++ {
+		wordIdx := rand.Intn(nWords)
+		sample[i] = words[wordIdx]
+	}
+	return sample
+}
+func BenchmarkContains(b *testing.B) {
+	trie := initializeSpellcheck("words.txt")
+	lookupWords := pickRandomWords(10, trie)
+	l := len(lookupWords)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		word := lookupWords[i%l]
+		trie.Contains(word)
+	}
+}
+func BenchmarkInsert(b *testing.B) {
+	trie1 := initializeSpellcheck("words.txt")
+	list := trie1.Enumerate()
+	l := len(list)
+	trie2 := newTrie()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		word := list[i%l]
+		trie2.Insert(word)
+	}
 }
