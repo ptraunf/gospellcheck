@@ -2,6 +2,7 @@ package main
 
 import (
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 )
@@ -88,7 +89,15 @@ func pickRandomWords(n int, t *Trie) []string {
 	return sample
 }
 func BenchmarkContains(b *testing.B) {
-	trie := initializeSpellcheck("words.txt")
+	f, err := os.Open("words.txt")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer f.Close()
+	trie, err := initializeDictionary(f)
+	if err != nil {
+		b.Fatal(err)
+	}
 	lookupWords := pickRandomWords(10, trie)
 	l := len(lookupWords)
 	b.ResetTimer()
@@ -98,13 +107,46 @@ func BenchmarkContains(b *testing.B) {
 	}
 }
 func BenchmarkInsert(b *testing.B) {
-	trie1 := initializeSpellcheck("words.txt")
+	f, err := os.Open("words.txt")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer f.Close()
+	trie1, err := initializeDictionary(f)
+	if err != nil {
+		b.Fatal(err)
+	}
 	list := trie1.Enumerate()
 	l := len(list)
 	trie2 := newTrie()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		word := list[i%l]
-		trie2.Insert(word)
+		trie2.Insert(list[i%l])
+	}
+}
+
+type mockReader struct {
+	data []byte
+}
+
+func (mr mockReader) Read(buf []byte) (n int, err error) {
+	l := len(mr.data)
+	if l > len(buf) {
+		n = copy(buf, mr.data[0:l])
+	} else {
+		n = copy(buf, mr.data)
+	}
+	return
+}
+func TestInitializeDictionary(t *testing.T) {
+	r := mockReader{
+		data: []byte("A"),
+	}
+	dict, err := initializeDictionary(r)
+	if dict == nil {
+		t.Fatalf("nil dict")
+	}
+	if err != nil {
+		t.Fatalf(err.Error())
 	}
 }

@@ -1,10 +1,8 @@
 package main
 
 import (
-	// "fmt"
 	"bufio"
-	"log"
-	"os"
+	"io"
 	"strings"
 )
 
@@ -150,19 +148,13 @@ type StringContainer interface {
 	KeysStartingWith(prefix string) []string
 }
 
-func initializeSpellcheck(filename string) *Trie {
+func initializeDictionary(r io.Reader) (*Trie, error) {
 	var trie = newTrie()
-	f, err := os.Open(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		word := scanner.Text()
 		trie.Insert(word)
 	}
 
-	return trie
+	return trie, nil
 }
