@@ -13,7 +13,7 @@ import (
 )
 
 func usage() {
-	fmt.Print("Usage:\n\tgospellcheck WORDLIST [FILE|-]")
+	fmt.Println("\nUsage:\n\tgospellcheck WORDLIST [FILE | -]\n")
 }
 
 type SpellingError struct {
@@ -62,6 +62,63 @@ func checkLine(dictionary *Trie, line string, lineNum int) []SpellingError {
 	return spellingErrors
 }
 
+func checkLineChan(dictionary *Trie, line string, lineNum int, out chan<- SpellingError) {
+	sentences := strings.FieldsFunc(line, func(r rune) bool {
+		return r == '.' || r == '!' || r == '?'
+	})
+	for s, sentence := range sentences {
+
+		trimmedSentence := strings.Trim(sentence, ". ")
+		if len(trimmedSentence) == 0 {
+			continue
+		}
+		words := strings.Split(trimmedSentence, " ")
+
+		for w, word := range words {
+			normalized := normalizeWord(word)
+			if len(normalized) > 0 && !dictionary.Contains(normalized) {
+				out <- SpellingError{
+					misspelled:   word,
+					line:         lineNum,
+					sentence:     s + 1,
+					wordPosition: w + 1,
+				}
+			}
+		}
+	}
+}
+
+func checkChannel(dictionary *Trie, lines <-chan string) chan SpellingError {
+	errChan := make(chan SpellingError)
+
+	go func() {
+		defer close(errChan)
+		i := 0
+		for line := range lines {
+
+			checkLineChan(dictionary, line, i+1, errChan)
+			i++
+
+		}
+	}()
+
+	return errChan
+}
+func checkReaderChannel(dictionary *Trie, reader io.Reader) chan SpellingError {
+	linesChan := make(chan string)
+	scanner := bufio.NewScanner(reader)
+	go func() {
+
+		defer close(linesChan)
+		for scanner.Scan() {
+			line := scanner.Text()
+			linesChan <- line
+		}
+	}()
+
+	errChan := checkChannel(dictionary, linesChan)
+	return errChan
+}
 func checkReader(dictionary *Trie, reader io.Reader) []SpellingError {
 	spellingErrors := make([]SpellingError, 0)
 
@@ -144,10 +201,12 @@ func main() {
 		}(targetFile)
 
 		fileReader := bufio.NewReader(targetFile)
-		spellingErrors := checkReader(dict, fileReader)
-		for _, spellingError := range spellingErrors {
+
+		spellingErrors := checkReaderChannel(dict, fileReader)
+		//defer close(spellingErrors)
+		for spellingError := range spellingErrors {
 			fmt.Printf("%s\n", spellingError.String())
 		}
-		return
+
 	}
 }
