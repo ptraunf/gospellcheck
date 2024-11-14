@@ -36,7 +36,7 @@ func TestCheckLine(t *testing.T) {
 	text := "Abc xxx def yyy. Ghi zzz"
 	spellingErrors := checkLine(dictionary, text, 1)
 
-	if len(spellingErrors) < 3 {
+	if len(spellingErrors) != 3 {
 		t.Fatalf("\nExpected 3 spelling errors; got %v\n", len(spellingErrors))
 	}
 	for _, spellingError := range spellingErrors {
