@@ -2,3 +2,6 @@
 **/*.txt
 /gospellcheck
 .dccache
+
+test_files/
+scratch.txt

@@ -4,40 +4,104 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"log"
-	"regexp"
-
-	// "log"
 	"os"
+	"regexp"
+	"slices"
 	"strings"
 )
 
 func usage() {
-	fmt.Print("Usage:\n\tgospellcheck [dictionary]")
+	fmt.Print("Usage:\n\tgospellcheck WORDLIST [FILE|-]")
 }
 
-func sanitizeFilename(filename string) (string, error) {
-	// disallow `..` parent-directory traversal
+type SpellingError struct {
+	misspelled   string
+	line         int
+	sentence     int
+	wordPosition int
+}
+
+func (se SpellingError) String() string {
+	return fmt.Sprintf("Line %d, sentence %d, word %d: '%s'", se.line, se.sentence, se.wordPosition, se.misspelled)
+}
+
+func normalizeWord(word string) string {
+	re, err := regexp.Compile("[^a-z]")
+	if err != nil {
+		log.Fatal(err)
+	}
+	normalizedBytes := re.ReplaceAll([]byte(strings.ToLower(word)), []byte(""))
+	return string(normalizedBytes)
+}
+
+func checkLine(dictionary *Trie, line string, lineNum int) []SpellingError {
+	spellingErrors := make([]SpellingError, 0)
+	sentences := strings.FieldsFunc(line, func(r rune) bool {
+		return r == '.' || r == '!' || r == '?'
+	})
+	for s, sentence := range sentences {
+		trimmedSentence := strings.Trim(sentence, ". ")
+		if len(trimmedSentence) == 0 {
+			continue
+		}
+		words := strings.Split(trimmedSentence, " ")
+		for w, word := range words {
+			normalized := normalizeWord(word)
+			if len(normalized) > 0 && !dictionary.Contains(normalized) {
+				spellingErrors = append(spellingErrors, SpellingError{
+					misspelled:   word,
+					line:         lineNum,
+					sentence:     s + 1,
+					wordPosition: w + 1,
+				})
+			}
+		}
+	}
+	return spellingErrors
+}
+
+func checkReader(dictionary *Trie, reader io.Reader) []SpellingError {
+	spellingErrors := make([]SpellingError, 0)
+
+	scanner := bufio.NewScanner(reader)
+	i := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		lineErrors := checkLine(dictionary, line, i+1)
+		spellingErrors = append(spellingErrors, lineErrors...)
+		i++
+	}
+	slices.SortFunc(spellingErrors, func(a, b SpellingError) int {
+		return a.line - b.line
+	})
+	return spellingErrors
+}
+
+func validateFilename(filename string) (string, error) {
 	pathSep := os.PathSeparator
 	pattern := fmt.Sprintf("\\.\\.\\%v", string(pathSep))
-	fmt.Printf("Pattern: %v", pattern)
 	match, err := regexp.Match(pattern, []byte(filename))
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 	if match {
-		return filename, errors.New("Path contains '..'")
+		return filename, errors.New("path contains '..'")
+	}
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return filename, errors.New(fmt.Sprintf("file %s does not exist", filename))
 	}
 	return filename, nil
 }
 
 func main() {
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		usage()
 		return
 	}
 	wordFile := os.Args[1]
-	sanitizedFilepath, err := sanitizeFilename(wordFile)
+	sanitizedFilepath, err := validateFilename(wordFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -45,23 +109,45 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}(f)
 
 	dict, err := initializeDictionary(f)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// fmt.Printf("Spellcheck initialized with word list:\n%v\n", trie)
-	for {
-		fmt.Printf("Spellcheck word: ")
+	if "-" == os.Args[2] {
+
 		in := bufio.NewReader(os.Stdin)
-		s, _ := in.ReadString('\n')
-		s = strings.TrimSpace(s)
-		correct := dict.Contains(s)
-		if correct {
-			fmt.Printf("'%v' is in the dictionary.\n", s)
-		} else {
-			fmt.Printf("'%v' is NOT in the dictionary\n", s)
+		spellingErrors := checkReader(dict, in)
+		for _, spellingError := range spellingErrors {
+			fmt.Printf("%s\n", spellingError.String())
 		}
+		return
+	} else {
+		targetPath := os.Args[2]
+		validTargetPath, err := validateFilename(targetPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		targetFile, err := os.Open(validTargetPath)
+		defer func(f *os.File) {
+			err := targetFile.Close()
+			if err != nil {
+				log.Printf("Error closing file: %v", err)
+			}
+		}(targetFile)
+
+		fileReader := bufio.NewReader(targetFile)
+		spellingErrors := checkReader(dict, fileReader)
+		for _, spellingError := range spellingErrors {
+			fmt.Printf("%s\n", spellingError.String())
+		}
+		return
 	}
 }
