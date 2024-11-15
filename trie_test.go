@@ -3,20 +3,20 @@ package main
 import (
 	"math/rand"
 	"os"
+	"strings"
 	"testing"
-	"time"
 )
 
-func TestCreate(t *testing.T) {
-	var sc *Trie = newTrie()
+func TestNewTrieNode(t *testing.T) {
+	var sc Trie = newTrieNode()
 	if sc == nil {
-		t.Fatalf("StringContainer.New ")
+		t.Fatalf("Could not create new Trie")
 	}
 }
 func TestInsert(t *testing.T) {
-	strings := []string{"ant", "anthem", "anteater"}
-	var trie *Trie = newTrie()
-	for _, word := range strings {
+	strs := []string{"ant", "anthem", "anteater"}
+	var trie Trie = newTrieNode()
+	for _, word := range strs {
 		insertResult := trie.Insert(word)
 		if !insertResult {
 			t.Fatalf("\nExpected:\ttrue\nActual:\t%v", insertResult)
@@ -25,14 +25,14 @@ func TestInsert(t *testing.T) {
 
 }
 func TestEnumerate(t *testing.T) {
-	strings := []string{"ant", "anthem", "anteater"}
-	var trie *Trie = newTrie()
+	strs := []string{"ant", "anthem", "anteater"}
+	var trie *TrieNode = newTrieNode()
 	var insertResult bool = true
-	for _, word := range strings {
+	for _, word := range strs {
 		insertResult = insertResult && trie.Insert(word)
 	}
 	results := trie.Enumerate()
-	expectedNResults := len(strings)
+	expectedNResults := len(strs)
 	actualNResults := len(results)
 	if expectedNResults != actualNResults {
 		t.Fatalf("\nExpected %v results; got %v results", expectedNResults, actualNResults)
@@ -43,10 +43,10 @@ func TestRemove(t *testing.T) {
 
 }
 func TestContains_Positive(t *testing.T) {
-	strings := []string{"ant", "anthem", "anteater"}
-	var trie *Trie = newTrie()
+	strs := []string{"ant", "anthem", "anteater"}
+	var trie Trie = newTrieNode()
 	var insertResult bool = true
-	for _, word := range strings {
+	for _, word := range strs {
 		insertResult = insertResult && trie.Insert(word)
 	}
 	key := "ant"
@@ -56,10 +56,10 @@ func TestContains_Positive(t *testing.T) {
 	}
 }
 func TestContains_Negative(t *testing.T) {
-	strings := []string{"ant", "anthem", "anteater"}
-	var trie *Trie = newTrie()
+	strs := []string{"ant", "anthem", "anteater"}
+	var trie Trie = newTrieNode()
 	var insertResult bool = true
-	for _, word := range strings {
+	for _, word := range strs {
 		insertResult = insertResult && trie.Insert(word)
 	}
 	key := "blarg"
@@ -77,8 +77,8 @@ func testKeysWithPrefix(t *testing.T) {
 
 }
 
-func pickRandomWords(n int, t *Trie) []string {
-	rand.Seed(time.Now().UnixNano())
+func pickRandomWords(n int, t *TrieNode) []string {
+	//rand.Seed(time.Now().UnixNano())
 	sample := make([]string, n)
 	words := t.Enumerate()
 	nWords := len(words)
@@ -93,11 +93,14 @@ func BenchmarkContains(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer f.Close()
-	trie, err := initializeDictionary(f)
-	if err != nil {
-		b.Fatal(err)
-	}
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+
+		}
+	}(f)
+	trie := newTrieNode()
+	trie.InsertAll(f)
 	lookupWords := pickRandomWords(10, trie)
 	l := len(lookupWords)
 	b.ResetTimer()
@@ -111,42 +114,30 @@ func BenchmarkInsert(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer f.Close()
-	trie1, err := initializeDictionary(f)
-	if err != nil {
-		b.Fatal(err)
-	}
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+
+		}
+	}(f)
+	trie1 := newTrieNode()
+	trie1.InsertAll(f)
 	list := trie1.Enumerate()
 	l := len(list)
-	trie2 := newTrie()
+	trie2 := newTrieNode()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		trie2.Insert(list[i%l])
 	}
 }
 
-type mockReader struct {
-	data []byte
-}
-
-func (mr mockReader) Read(buf []byte) (n int, err error) {
-	l := len(mr.data)
-	if l > len(buf) {
-		n = copy(buf, mr.data[0:l])
-	} else {
-		n = copy(buf, mr.data)
-	}
-	return
-}
-func TestInitializeDictionary(t *testing.T) {
-	r := mockReader{
-		data: []byte("A"),
-	}
-	dict, err := initializeDictionary(r)
-	if dict == nil {
-		t.Fatalf("nil dict")
-	}
-	if err != nil {
-		t.Fatalf(err.Error())
+func TestInsertAll(t *testing.T) {
+	values := []string{"a", "b", "c", "d"}
+	trie := newTrieNode()
+	trie.InsertAll(strings.NewReader(strings.Join(values, "\n")))
+	for _, v := range values {
+		if !trie.Contains(v) {
+			t.Fatalf("Trie should contain %v\n", v)
+		}
 	}
 }
