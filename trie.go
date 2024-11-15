@@ -6,31 +6,29 @@ import (
 	"strings"
 )
 
-type Node struct {
+type TrieNode struct {
 	isKey    bool
-	children map[rune]*Node
+	children map[rune]*TrieNode
 }
 
-func newNode() *Node {
-	return &Node{
+func newTrieNode() *TrieNode {
+	return &TrieNode{
 		isKey:    false,
-		children: make(map[rune]*Node),
+		children: make(map[rune]*TrieNode),
 	}
 }
 
-type Trie struct {
-	root *Node
+type Trie interface {
+	Insert(key string) bool
+	InsertAll(r io.Reader)
+	Remove(key string) bool
+	Contains(key string) bool
+	LongestPrefix(key string) string
+	KeysStartingWith(prefix string) []string
 }
 
-func newTrie() *Trie {
-	trie := Trie{
-		root: newNode(),
-	}
-	return &trie
-}
-
-func (t Trie) Contains(key string) bool {
-	currentNode := t.root
+func (t *TrieNode) Contains(key string) bool {
+	currentNode := t
 	searchChars := []rune(key)
 	for len(searchChars) >= 1 {
 		c := searchChars[0]
@@ -45,20 +43,20 @@ func (t Trie) Contains(key string) bool {
 	return currentNode.isKey
 }
 
-func (t *Trie) addNewBranch(node *Node, chars []rune) {
-	currentNode := node
+func (t *TrieNode) addNewBranch(chars []rune) {
+	currentNode := t
 
 	for len(chars) >= 1 {
 		c := chars[0]
-		currentNode.children[c] = newNode()
+		currentNode.children[c] = newTrieNode()
 		currentNode = currentNode.children[c]
 		chars = chars[1:]
 	}
 	currentNode.isKey = true
 
 }
-func (t *Trie) Insert(s string) bool {
-	currentNode := t.root
+func (t *TrieNode) Insert(s string) bool {
+	currentNode := t
 	searchChars := []rune(s)
 	for len(searchChars) >= 1 {
 		c := searchChars[0]
@@ -67,94 +65,56 @@ func (t *Trie) Insert(s string) bool {
 			currentNode = child
 			searchChars = searchChars[1:]
 		} else {
-			t.addNewBranch(currentNode, searchChars)
+			currentNode.addNewBranch(searchChars)
 		}
 	}
 	currentNode.isKey = true
 	return currentNode.isKey
 }
-func (t *Trie) Remove(key string) bool {
+func (t *TrieNode) Remove(key string) bool {
 	return false
 }
-func (t *Trie) LongestPrefix(key string) string {
+func (t *TrieNode) LongestPrefix(key string) string {
 	return ""
 }
-func (t *Trie) KeysStartingWith(prefix string) []string {
+func (t *TrieNode) KeysStartingWith(prefix string) []string {
 	return []string{}
-}
-
-type stack[T any] struct {
-	data []T
-}
-
-func (s *stack[T]) push(item T) {
-	s.data = append(s.data, item)
-}
-func (s *stack[T]) pop() T {
-	n := len(s.data) - 1
-	item := s.data[n]
-	s.data = s.data[:n]
-	return item
-}
-func (s *stack[T]) peek() T {
-	n := len(s.data) - 1
-	return s.data[n]
-}
-
-func (s *stack[T]) size() int {
-	return len(s.data)
 }
 
 type NodePath struct {
 	prefix string
-	node   *Node
+	node   *TrieNode
 }
 
-func enumerate(n *Node) []string {
-	var neighborStack stack[NodePath]
+func (t *TrieNode) Enumerate() []string {
+	var neighborStack = make(stack[NodePath], 0)
 	var enumeration []string
 	var prefix = ""
-	neighborStack.push(NodePath{prefix, n})
+	neighborStack.push(NodePath{prefix, t})
 
 	for neighborStack.size() > 0 {
 		currentPath := neighborStack.pop()
 		if currentPath.node.isKey {
-			// fmt.Println(currentPath.prefix)
 			enumeration = append(enumeration, currentPath.prefix)
 		}
-		for c, neigbor := range currentPath.node.children {
+		for c, neighbor := range currentPath.node.children {
 			neighborStack.push(
 				NodePath{
 					prefix: currentPath.prefix + string(c),
-					node:   neigbor,
+					node:   neighbor,
 				})
 		}
 	}
 	return enumeration
 }
-func (t *Trie) Enumerate() []string {
-	return enumerate(t.root)
-}
 
-func (t *Trie) String() string {
-	return strings.Join(enumerate(t.root), "\n")
+func (t *TrieNode) String() string {
+	return strings.Join(t.Enumerate(), "\n")
 }
-
-type StringContainer interface {
-	Insert(key string) bool
-	Remove(key string) bool
-	Contains(key string) bool
-	LongestPrefix(key string) string
-	KeysStartingWith(prefix string) []string
-}
-
-func initializeDictionary(r io.Reader) (*Trie, error) {
-	var trie = newTrie()
+func (t *TrieNode) InsertAll(r io.Reader) {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		word := scanner.Text()
-		trie.Insert(word)
+		_ = t.Insert(word)
 	}
-
-	return trie, nil
 }
