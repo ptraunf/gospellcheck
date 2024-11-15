@@ -10,10 +10,11 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 )
 
 func usage() {
-	fmt.Print("Usage:\n\tgospellcheck WORDLIST [FILE|-]")
+	fmt.Println("\nUsage:\n\tgospellcheck WORDLIST [FILE | -]")
 }
 
 type SpellingError struct {
@@ -62,9 +63,96 @@ func checkLine(dictionary *Trie, line string, lineNum int) []SpellingError {
 	return spellingErrors
 }
 
-func checkReader(dictionary *Trie, reader io.Reader) []SpellingError {
-	spellingErrors := make([]SpellingError, 0)
+func checkLineChan(dictionary *Trie, line string, lineNum int, out chan<- SpellingError, wg *sync.WaitGroup) {
+	sentences := strings.FieldsFunc(line, func(r rune) bool {
+		return r == '.' || r == '!' || r == '?'
+	})
+	var sentenceWg sync.WaitGroup
+	for s, sentence := range sentences {
+		sentenceWg.Add(1)
+		go func(sentenceNum int, sentence string) {
+			defer sentenceWg.Done()
+			//log.Printf("Reading sentence %d from line %d\n", s+1, lineNum)
+			trimmedSentence := strings.Trim(sentence, ". ")
+			if len(trimmedSentence) == 0 {
+				return
+			}
+			words := strings.Split(trimmedSentence, " ")
 
+			for w, word := range words {
+				normalized := normalizeWord(word)
+				if len(normalized) > 0 && !dictionary.Contains(normalized) {
+					out <- SpellingError{
+						misspelled:   word,
+						line:         lineNum,
+						sentence:     s + 1,
+						wordPosition: w + 1,
+					}
+					//log.Printf("Sentence %d yielded spelling error\n", sentenceNum)
+				}
+			}
+		}(s, sentence)
+	}
+	sentenceWg.Wait()
+	wg.Done()
+}
+
+func checkChannel(dictionary *Trie, lines <-chan string) chan SpellingError {
+	errChan := make(chan SpellingError)
+	var wg sync.WaitGroup
+	i := 0
+	for line := range lines {
+		wg.Add(1)
+		//log.Printf("Read line %d from linesChan\n", i+1)
+		go checkLineChan(dictionary, line, i+1, errChan, &wg)
+		i++
+	}
+	go func() {
+		defer close(errChan)
+		wg.Wait()
+	}()
+	return errChan
+}
+
+func chanToSlice[T any](ch <-chan T) []T {
+	var wg sync.WaitGroup
+
+	result := make([]T, 0)
+	wg.Add(1)
+	go func(cha <-chan T) {
+		for v := range cha {
+			result = append(result, v)
+		}
+		wg.Done()
+	}(ch)
+	wg.Wait()
+	return result
+}
+func chanToSortedSlice[T any](ch <-chan T, sortFunc func(a, b T) int) []T {
+	slice := chanToSlice(ch)
+	slices.SortFunc(slice, sortFunc)
+	return slice
+}
+
+func checkReaderConcurrent(dictionary *Trie, reader io.Reader) chan SpellingError {
+	linesChan := make(chan string)
+	scanner := bufio.NewScanner(reader)
+	go func() {
+		defer close(linesChan)
+		for scanner.Scan() {
+			line := scanner.Text()
+			//log.Printf("scanned line\n")
+			linesChan <- line
+		}
+	}()
+
+	errChan := checkChannel(dictionary, linesChan)
+	return errChan
+}
+func checkReaderSequential(dictionary *Trie, reader io.Reader) []SpellingError {
+	//log.Printf("Spellcheck Sequential\n")
+
+	spellingErrors := make([]SpellingError, 0)
 	scanner := bufio.NewScanner(reader)
 	i := 0
 	for scanner.Scan() {
@@ -120,10 +208,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	if "-" == os.Args[2] {
 
 		in := bufio.NewReader(os.Stdin)
-		spellingErrors := checkReader(dict, in)
+		spellingErrors := checkReaderSequential(dict, in)
 		for _, spellingError := range spellingErrors {
 			fmt.Printf("%s\n", spellingError.String())
 		}
@@ -144,10 +233,14 @@ func main() {
 		}(targetFile)
 
 		fileReader := bufio.NewReader(targetFile)
-		spellingErrors := checkReader(dict, fileReader)
-		for _, spellingError := range spellingErrors {
+
+		spellingErrorsCh := checkReaderConcurrent(dict, fileReader)
+
+		spellingErrorsSlice := chanToSortedSlice(spellingErrorsCh, func(a, b SpellingError) int {
+			return a.line - b.line
+		})
+		for _, spellingError := range spellingErrorsSlice {
 			fmt.Printf("%s\n", spellingError.String())
 		}
-		return
 	}
 }
