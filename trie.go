@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"io"
+	"slices"
 	"strings"
 )
 
@@ -24,7 +25,7 @@ type Trie interface {
 	Remove(key string) bool
 	Contains(key string) bool
 	LongestPrefix(key string) string
-	KeysStartingWith(prefix string) []string
+	KeysWithCommonPrefix(prefix string) []string
 }
 
 func (t *TrieNode) Contains(key string) bool {
@@ -74,11 +75,53 @@ func (t *TrieNode) Insert(s string) bool {
 func (t *TrieNode) Remove(key string) bool {
 	return false
 }
-func (t *TrieNode) LongestPrefix(key string) string {
-	return ""
+func (t *TrieNode) LongestPrefix(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	currentNode := t
+	chars := []rune(s)
+	longestPrefix := make([]rune, 0)
+	for len(chars) > 0 && len(currentNode.children) > 0 {
+		c := chars[0]
+		child, hasChild := currentNode.children[c]
+		if hasChild {
+			longestPrefix = append(longestPrefix, c)
+			currentNode = child
+			chars = chars[1:]
+		} else {
+			break
+		}
+	}
+	return string(longestPrefix)
 }
-func (t *TrieNode) KeysStartingWith(prefix string) []string {
-	return []string{}
+
+func (t *TrieNode) KeysWithCommonPrefix(s string) []string {
+	if len(s) == 0 {
+		return []string{}
+	}
+	currentNode := t
+	var keys []string
+	chars := []rune(s)
+	longestPrefix := make([]rune, 0)
+	for len(chars) > 0 && len(currentNode.children) > 0 {
+		c := chars[0]
+		child, hasChild := currentNode.children[c]
+		if hasChild {
+			longestPrefix = append(longestPrefix, c)
+			currentNode = child
+			chars = chars[1:]
+		} else {
+			keys = currentNode.Enumerate()
+			break
+		}
+	}
+	longestPrefixStr := string(longestPrefix)
+	slices.Sort(keys)
+	for i := 0; i < len(keys); i++ {
+		keys[i] = longestPrefixStr + keys[i]
+	}
+	return keys
 }
 
 type NodePath struct {

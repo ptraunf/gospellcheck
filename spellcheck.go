@@ -15,6 +15,7 @@ type SpellingError struct {
 	line         int
 	sentence     int
 	wordPosition int
+	suggestions  []string
 }
 type Spellcheck interface {
 	InitializeWordList(r io.Reader)
@@ -39,7 +40,7 @@ func (spellcheck *TrieSpellcheck) CheckReader(r io.Reader) chan SpellingError {
 }
 
 func (se SpellingError) String() string {
-	return fmt.Sprintf("Line %d, sentence %d, word %d: '%s'", se.line, se.sentence, se.wordPosition, se.misspelled)
+	return fmt.Sprintf("Line %d, sentence %d, word %d: '%s'\n\tSuggestions: %v\n", se.line, se.sentence, se.wordPosition, se.misspelled, se.suggestions)
 }
 
 func normalizeWord(word string) string {
@@ -50,7 +51,14 @@ func normalizeWord(word string) string {
 	normalizedBytes := re.ReplaceAll([]byte(strings.ToLower(word)), []byte(""))
 	return string(normalizedBytes)
 }
-
+func getSuggestions(trie Trie, word string, numSuggestions int) []string {
+	suggestions := trie.KeysWithCommonPrefix(word)
+	if len(suggestions) > numSuggestions {
+		return suggestions[:numSuggestions]
+	} else {
+		return suggestions
+	}
+}
 func checkLine(trie Trie, line string, lineNum int, out chan<- SpellingError, wg *sync.WaitGroup) {
 	sentences := strings.FieldsFunc(line, func(r rune) bool {
 		return r == '.' || r == '!' || r == '?'
@@ -74,6 +82,7 @@ func checkLine(trie Trie, line string, lineNum int, out chan<- SpellingError, wg
 						line:         lineNum,
 						sentence:     sentenceNum + 1,
 						wordPosition: w + 1,
+						suggestions:  getSuggestions(trie, normalized, 5),
 					}
 				}
 			}
