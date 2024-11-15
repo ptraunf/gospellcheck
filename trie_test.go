@@ -3,8 +3,10 @@ package main
 import (
 	"math/rand"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewTrieNode(t *testing.T) {
@@ -68,22 +70,49 @@ func TestContains_Negative(t *testing.T) {
 		t.Fatalf("Did not expect trie to contain key %v\n", key)
 	}
 }
-
-func testLongestPrefix(t *testing.T) {
-
+func TestLongestPrefix(t *testing.T) {
+	s := "abcdefg"
+	trie := newTrieNode()
+	wordList := []string{"a", "ab", "abc", "abcd", "abcdex"}
+	trie.InsertAll(strings.NewReader(strings.Join(wordList, "\n")))
+	expected := "abcde"
+	actual := trie.LongestPrefix(s)
+	if actual != expected {
+		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
+	}
 }
 
-func testKeysWithPrefix(t *testing.T) {
+func TestLongestPrefixNone(t *testing.T) {
+	s := "abcdefg"
+	trie := newTrieNode()
+	wordList := []string{"x", "xy", "xyz"}
+	trie.InsertAll(strings.NewReader(strings.Join(wordList, "\n")))
+	expected := ""
+	actual := trie.LongestPrefix(s)
+	if actual != expected {
+		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
+	}
+}
 
+func TestKeysWithPrefix(t *testing.T) {
+	s := "abcdefg"
+	trie := newTrieNode()
+	wordList := []string{"a", "abx", "abcx", "abcdx", "abcdex", "abcdey", "abcdez"}
+	trie.InsertAll(strings.NewReader(strings.Join(wordList, "\n")))
+	expected := []string{"abcdex", "abcdey", "abcdez"}
+	actual := trie.KeysWithCommonPrefix(s)
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
+	}
 }
 
 func pickRandomWords(n int, t *TrieNode) []string {
-	//rand.Seed(time.Now().UnixNano())
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	sample := make([]string, n)
 	words := t.Enumerate()
 	nWords := len(words)
 	for i := 0; i < n; i++ {
-		wordIdx := rand.Intn(nWords)
+		wordIdx := r.Intn(nWords)
 		sample[i] = words[wordIdx]
 	}
 	return sample
