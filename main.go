@@ -67,27 +67,33 @@ func checkLineChan(dictionary *Trie, line string, lineNum int, out chan<- Spelli
 	sentences := strings.FieldsFunc(line, func(r rune) bool {
 		return r == '.' || r == '!' || r == '?'
 	})
+	var sentenceWg sync.WaitGroup
 	for s, sentence := range sentences {
-		log.Printf("Reading sentence %d from line %d\n", s+1, lineNum)
-		trimmedSentence := strings.Trim(sentence, ". ")
-		if len(trimmedSentence) == 0 {
-			continue
-		}
-		words := strings.Split(trimmedSentence, " ")
-
-		for w, word := range words {
-			normalized := normalizeWord(word)
-			if len(normalized) > 0 && !dictionary.Contains(normalized) {
-				out <- SpellingError{
-					misspelled:   word,
-					line:         lineNum,
-					sentence:     s + 1,
-					wordPosition: w + 1,
-				}
-				log.Printf("Sent spelling error to channel\n")
+		sentenceWg.Add(1)
+		go func(sentenceNum int, sentence string) {
+			defer sentenceWg.Done()
+			//log.Printf("Reading sentence %d from line %d\n", s+1, lineNum)
+			trimmedSentence := strings.Trim(sentence, ". ")
+			if len(trimmedSentence) == 0 {
+				return
 			}
-		}
+			words := strings.Split(trimmedSentence, " ")
+
+			for w, word := range words {
+				normalized := normalizeWord(word)
+				if len(normalized) > 0 && !dictionary.Contains(normalized) {
+					out <- SpellingError{
+						misspelled:   word,
+						line:         lineNum,
+						sentence:     s + 1,
+						wordPosition: w + 1,
+					}
+					//log.Printf("Sentence %d yielded spelling error\n", sentenceNum)
+				}
+			}
+		}(s, sentence)
 	}
+	sentenceWg.Wait()
 	wg.Done()
 }
 
@@ -97,7 +103,7 @@ func checkChannel(dictionary *Trie, lines <-chan string) chan SpellingError {
 	i := 0
 	for line := range lines {
 		wg.Add(1)
-		log.Printf("Read line %d from linesChan\n", i+1)
+		//log.Printf("Read line %d from linesChan\n", i+1)
 		go checkLineChan(dictionary, line, i+1, errChan, &wg)
 		i++
 	}
@@ -129,14 +135,13 @@ func chanToSortedSlice[T any](ch <-chan T, sortFunc func(a, b T) int) []T {
 }
 
 func checkReaderConcurrent(dictionary *Trie, reader io.Reader) chan SpellingError {
-	log.Printf("Spellcheck Concurrent\n")
 	linesChan := make(chan string)
 	scanner := bufio.NewScanner(reader)
 	go func() {
 		defer close(linesChan)
 		for scanner.Scan() {
 			line := scanner.Text()
-			log.Printf("scanned line\n")
+			//log.Printf("scanned line\n")
 			linesChan <- line
 		}
 	}()
@@ -145,7 +150,7 @@ func checkReaderConcurrent(dictionary *Trie, reader io.Reader) chan SpellingErro
 	return errChan
 }
 func checkReaderSequential(dictionary *Trie, reader io.Reader) []SpellingError {
-	log.Printf("Spellcheck Sequential\n")
+	//log.Printf("Spellcheck Sequential\n")
 
 	spellingErrors := make([]SpellingError, 0)
 	scanner := bufio.NewScanner(reader)
