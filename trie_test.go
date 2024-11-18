@@ -157,7 +157,17 @@ func TestKeysWithPrefixEmptyString(t *testing.T) {
 		t.Fatalf("\nExpected empty result, got %v\n", actual)
 	}
 }
+func TestKeysWithPrefixNoMatch(t *testing.T) {
+	s := "xyz"
+	trie := newTrieNode()
+	wordList := []string{"abc", "def", "ghi"}
+	trie.InsertAll(strings.NewReader(strings.Join(wordList, "\n")))
 
+	actual := trie.KeysWithCommonPrefix(s)
+	if len(actual) > 0 {
+		t.Fatalf("\nExpected empty slice, got:\t%v\n", actual)
+	}
+}
 func pickRandomWords(n int, t *TrieNode) []string {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	sample := make([]string, n)

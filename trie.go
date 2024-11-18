@@ -113,14 +113,19 @@ func (t *TrieNode) KeysWithCommonPrefix(s string) []string {
 			break
 		}
 	}
-	keys = currentNode.Enumerate()
+	if len(longestPrefix) > 0 {
+		keys = currentNode.Enumerate()
 
-	longestPrefixStr := string(longestPrefix)
-	slices.Sort(keys)
-	for i := 0; i < len(keys); i++ {
-		keys[i] = longestPrefixStr + keys[i]
+		longestPrefixStr := string(longestPrefix)
+		slices.Sort(keys)
+		for i := 0; i < len(keys); i++ {
+			keys[i] = longestPrefixStr + keys[i]
+		}
+		return keys
+	} else {
+		return []string{}
 	}
-	return keys
+
 }
 
 type NodePath struct {
