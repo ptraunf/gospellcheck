@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -11,7 +12,10 @@ import (
 )
 
 func usage() {
-	fmt.Println("\nUsage:\n\tgospellcheck WORDLIST [FILE | -]")
+	fmt.Printf("\nUsage:\n\tgospellcheck [OPTIONS] WORDLIST TARGET\n")
+	fmt.Printf("\nWORDLIST\n\tnewline-delimited file of words to populate the spellcheck dictionary\n")
+	fmt.Printf("\nTARGET\n\tfile to spellcheck, or '-' to read from stdin\n")
+	fmt.Printf("\nOPTIONS\n\t-s\tnumber of words to suggest for each misspelling\n")
 }
 
 func validateFilename(filename string) (string, error) {
@@ -31,11 +35,16 @@ func validateFilename(filename string) (string, error) {
 }
 
 func main() {
-	if len(os.Args) < 3 {
+
+	suggestions := flag.Int("s", 0, "number of words to suggest for each misspelling")
+	flag.Parse()
+	if flag.NArg() < 2 {
 		usage()
 		return
 	}
-	wordFile := os.Args[1]
+	wordFile := flag.Arg(0)
+	targetPath := flag.Arg(1)
+
 	sanitizedFilepath, err := validateFilename(wordFile)
 	if err != nil {
 		log.Fatal(err)
@@ -51,16 +60,16 @@ func main() {
 		}
 	}(f)
 
-	spellcheck := newSpellcheck()
+	spellcheck := newSpellcheck(*suggestions)
 	spellcheck.InitializeWordList(f)
 
 	var targetReader io.Reader
-	if "-" == os.Args[2] {
+	if "-" == targetPath {
 
 		targetReader = bufio.NewReader(os.Stdin)
 
 	} else {
-		targetPath := os.Args[2]
+		//targetPath := os.Args[2]
 		validTargetPath, err := validateFilename(targetPath)
 		if err != nil {
 			log.Fatal(err)
