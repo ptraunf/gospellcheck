@@ -37,3 +37,15 @@ func TestSuggestions(t *testing.T) {
 		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
 	}
 }
+func TestSuggestions2(t *testing.T) {
+	s := "thes"
+	trie := newTrieNode()
+	wordList := []string{"these", "wraps", "are", "inky"}
+	trie.InsertAll(strings.NewReader(strings.Join(wordList, "\n")))
+	t.Logf("\ntrie:\n%s\n", trie)
+	expected := []string{"these"}
+	actual := getSuggestions(trie, s, 2)
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
+	}
+}

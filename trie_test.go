@@ -41,9 +41,7 @@ func TestEnumerate(t *testing.T) {
 	}
 	t.Logf("Trie:\n%v\n", trie)
 }
-func TestRemove(t *testing.T) {
 
-}
 func TestContains_Positive(t *testing.T) {
 	strs := []string{"ant", "anthem", "anteater"}
 	var trie Trie = newTrieNode()
@@ -93,6 +91,39 @@ func TestLongestPrefixNone(t *testing.T) {
 		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
 	}
 }
+func TestLongestPrefixEmptyString(t *testing.T) {
+	s := ""
+	trie := newTrieNode()
+	wordList := []string{"a", "ab", "abc", "abcd", "abcdex"}
+	trie.InsertAll(strings.NewReader(strings.Join(wordList, "\n")))
+	expected := ""
+	actual := trie.LongestPrefix(s)
+	if actual != expected {
+		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
+	}
+}
+func TestLongestPrefixWordShorter(t *testing.T) {
+	s := "abcd"
+	trie := newTrieNode()
+	wordList := []string{"abcdex", "abcdey", "abcdez"}
+	trie.InsertAll(strings.NewReader(strings.Join(wordList, "\n")))
+	expected := "abcd"
+	actual := trie.LongestPrefix(s)
+	if actual != expected {
+		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
+	}
+}
+func TestLongestPrefixWordShorter2(t *testing.T) {
+	s := "thes"
+	trie := newTrieNode()
+	wordList := []string{"these", "theses", "theseus"}
+	trie.InsertAll(strings.NewReader(strings.Join(wordList, "\n")))
+	expected := "thes"
+	actual := trie.LongestPrefix(s)
+	if actual != expected {
+		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
+	}
+}
 
 func TestKeysWithPrefix(t *testing.T) {
 	s := "abcdefg"
@@ -103,6 +134,27 @@ func TestKeysWithPrefix(t *testing.T) {
 	actual := trie.KeysWithCommonPrefix(s)
 	if !reflect.DeepEqual(actual, expected) {
 		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
+	}
+}
+func TestKeysWithPrefix2(t *testing.T) {
+	s := "thes"
+	trie := newTrieNode()
+	wordList := []string{"these", "theses", "theseus"}
+	trie.InsertAll(strings.NewReader(strings.Join(wordList, "\n")))
+	expected := []string{"these", "theses", "theseus"}
+	actual := trie.KeysWithCommonPrefix(s)
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("\nExpected:\t%v\nActual:\t\t%v\n", expected, actual)
+	}
+}
+func TestKeysWithPrefixEmptyString(t *testing.T) {
+	s := ""
+	trie := newTrieNode()
+	wordList := []string{"these", "theses", "theseus"}
+	trie.InsertAll(strings.NewReader(strings.Join(wordList, "\n")))
+	actual := trie.KeysWithCommonPrefix(s)
+	if len(actual) > 0 {
+		t.Fatalf("\nExpected empty result, got %v\n", actual)
 	}
 }
 

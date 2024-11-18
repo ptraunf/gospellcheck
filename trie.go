@@ -22,10 +22,10 @@ func newTrieNode() *TrieNode {
 type Trie interface {
 	Insert(key string) bool
 	InsertAll(r io.Reader)
-	Remove(key string) bool
 	Contains(key string) bool
 	LongestPrefix(key string) string
 	KeysWithCommonPrefix(prefix string) []string
+	Enumerate() []string
 }
 
 func (t *TrieNode) Contains(key string) bool {
@@ -72,9 +72,7 @@ func (t *TrieNode) Insert(s string) bool {
 	currentNode.isKey = true
 	return currentNode.isKey
 }
-func (t *TrieNode) Remove(key string) bool {
-	return false
-}
+
 func (t *TrieNode) LongestPrefix(s string) string {
 	if len(s) == 0 {
 		return ""
@@ -112,10 +110,11 @@ func (t *TrieNode) KeysWithCommonPrefix(s string) []string {
 			currentNode = child
 			chars = chars[1:]
 		} else {
-			keys = currentNode.Enumerate()
 			break
 		}
 	}
+	keys = currentNode.Enumerate()
+
 	longestPrefixStr := string(longestPrefix)
 	slices.Sort(keys)
 	for i := 0; i < len(keys); i++ {
